@@ -1,5 +1,6 @@
 import cv2
 import torch
+import numpy as np
 import torchvision.transforms as transforms
 from transformer_net import TransformerNet
 import os
@@ -72,9 +73,12 @@ transform = transforms.Compose([
 
 # Kamera
 cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
 
 while True:
+    start_time = time.time()
     ret, frame = cap.read()
     if not ret:
         break
@@ -93,9 +97,28 @@ while True:
     # 🧼 Vytvoříme čistou verzi výstupu bez textu pro snapshot
     clean_output = output_bgr.copy()
 
-    # Přidáme text pouze pro náhled v okně
-    cv2.putText(output_bgr, f"Styl: {model_name}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
-    cv2.imshow("Stylizace", output_bgr)
+    # Split-screen: vlevo originál, vpravo stylizace
+    original_resized = cv2.resize(frame, (output_bgr.shape[1], output_bgr.shape[0]))
+    combined = cv2.hconcat([original_resized, output_bgr])
+
+    # Elegantní horní pruh s názvem stylu
+    panel_height = 40
+    panel = np.zeros((panel_height, combined.shape[1], 3), dtype=np.uint8)
+
+    fps = 1.0 / (time.time() - start_time)
+
+
+    cv2.putText(panel, f"Styl: {model_name}   FPS: {fps:.1f}", (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+    cv2.putText(panel, f"Styl: {model_name}", (10, 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+    # Spojíme panel + video
+    output_with_panel = np.vstack([panel, combined])
+
+    fps = 1.0 / (time.time() - start_time)
+
+    cv2.imshow("Stylizace - vlevo originál | vpravo stylizace", output_with_panel)
 
     key = cv2.waitKey(1) & 0xFF
 
