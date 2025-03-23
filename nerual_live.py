@@ -47,23 +47,6 @@ def load_model(model_path):
             state_dict[k.replace("saved_model.", "")] = state_dict.pop(k)
 
     style_model.load_state_dict(state_dict, strict=False)
-
-    # Pak přesuň síť na cílové zařízení (např. MPS)
-    style_model.to(device)
-    style_model.eval()
-    return style_model
-
-    # Odstranění nepodporovaných klíčů z InstanceNorm2d
-    ignored = [k for k in state_dict.keys() if "running_mean" in k or "running_var" in k]
-    for k in ignored:
-        del state_dict[k]
-
-    # Odstranění případného prefixu "saved_model."
-    for k in list(state_dict.keys()):
-        if k.startswith("saved_model."):
-            state_dict[k.replace("saved_model.", "")] = state_dict.pop(k)
-
-    style_model.load_state_dict(state_dict, strict=False)
     style_model.to(device)
     style_model.eval()
     return style_model
@@ -90,6 +73,7 @@ transform = transforms.Compose([
 # Kamera
 cap = cv2.VideoCapture(0)
 
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -106,6 +90,10 @@ while True:
     output_data = output_data.transpose(1, 2, 0).astype('uint8')
     output_bgr = cv2.cvtColor(output_data, cv2.COLOR_RGB2BGR)
 
+    # 🧼 Vytvoříme čistou verzi výstupu bez textu pro snapshot
+    clean_output = output_bgr.copy()
+
+    # Přidáme text pouze pro náhled v okně
     cv2.putText(output_bgr, f"Styl: {model_name}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
     cv2.imshow("Stylizace", output_bgr)
 
@@ -115,7 +103,7 @@ while True:
         break
     elif key == ord('s'):
         filename = os.path.join(output_dir, f"snapshot_{snapshot_counter}_{model_name.lower().replace(' ', '_')}.jpg")
-        cv2.imwrite(filename, output_bgr)
+        cv2.imwrite(filename, clean_output)  # Ukládáme čistou verzi
         print(f"🖼️ Uložen snímek jako {filename}")
         snapshot_counter += 1
     elif chr(key) in MODEL_PATHS:
